@@ -3,7 +3,6 @@ package main;
 
 use strict;
 use warnings;
-use IO::Socket;
 use LWP::UserAgent;
 
 sub
@@ -30,14 +29,15 @@ pushover_Set($@)
   my $name = shift @a;
   my $v = join(" ", @a);
 
-#  if($name eq "msg") 
+
+  if($name eq "msg") 
   {
     sendMsg($hash, $v);
   } 
- # else
-  #{
-  #  return "unknown argument $name, choose msg";
- # }
+  else
+  {
+    return "unknown argument $name, choose msg";
+  }
   
   $hash->{CHANGED}[0] = $v;
   $hash->{STATE} = $v;
@@ -76,7 +76,7 @@ sub sendMsg
       "message" => "$msg"
     ]
   );
-
+  print "Push message sent via pushover module"
 }
 
 1;
