@@ -8,7 +8,7 @@ This module defines an actor which uses Pushover to send a message.
 
 First, define a device:
 
-<code>define <name> pushover <app token> <user token></code>
+<code>define &lt;name&gt; pushover &lt;app token&gt; &lt;user token&gt;</code>
 
 where "name" is your devices name; app and user token can be found in the Pushover dashboard. 
 
