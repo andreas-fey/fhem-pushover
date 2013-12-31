@@ -3,80 +3,81 @@ package main;
 
 use strict;
 use warnings;
-use LWP::UserAgent;
+use HttpUtils;
+use Encode;
 
-sub
-pushover_Initialize($)
-{
-  my ($hash) = @_;
+sub pushover_Initialize($) {
+    my ($hash) = @_;
 
-  $hash->{SetFn}     = "pushover_Set";
-  $hash->{DefFn}     = "pushover_Define";
-  $hash->{AttrList}  = "token user";
+    $hash->{SetFn}    = "pushover_Set";
+    $hash->{DefFn}    = "pushover_Define";
+    $hash->{AttrList} = undef;
 }
 
 ###################################
-sub
-pushover_Set($@)
-{
-  my ($hash, @a) = @_;
+sub pushover_Set($@) {
+    my ( $hash, @a ) = @_;
+    my $result;
 
-  return "no set value specified" if(int(@a) < 2);
-  return "msg" if($a[1] eq "?");
+    return "no set value specified" if ( int(@a) < 2 );
+    return "msg" if ( $a[1] eq "?" );
 
-  
-  shift @a;
-  my $name = shift @a;
-  my $v = join(" ", @a);
+    shift @a;
+    my $name = shift @a;
+    my $v = join( " ", @a );
 
+    if ( $name eq "msg" ) {
+        Log3 $name, 2, "pushover set $name msg $v";
+        $result = sendMsg( $hash, $v );
+    }
+    else {
+        return "unknown argument $name, choose msg";
+    }
 
-  if($name eq "msg") 
-  {
-    sendMsg($hash, $v);
-  } 
-  else
-  {
-    return "unknown argument $name, choose msg";
-  }
-  
-  $hash->{CHANGED}[0] = $v;
-  $hash->{STATE} = $v;
-  $hash->{READINGS}{state}{TIME} = TimeNow();
-  $hash->{READINGS}{state}{VAL} = $v;
-  
-  return undef;
+    $hash->{CHANGED}[0] = $v;
+    $hash->{STATE} = $v;
+
+    readingsBeginUpdate($hash);
+    readingsBulkUpdate( $hash, "lastMsg", $v );
+    readingsBulkUpdate( $hash, "state",   $result );
+    readingsEndUpdate( $hash, 1 );
+
+    return undef;
 }
 
-sub
-pushover_Define($$)
-{
-  my ($hash, $def) = @_;
-  my @a = split("[ \t][ \t]*", $def);
+sub pushover_Define($$) {
+    my ( $hash, $def ) = @_;
+    my @a = split( "[ \t][ \t]*", $def );
 
-  my $u = "wrong syntax: define <name> <token> <user>";
-  return $u if(int(@a) < 3);
-  
-  $hash->{token} = $a[2];
-  $hash->{user} = $a[3];
-  
-  return undef;
+    my $u = "wrong syntax: define <name> <token> <user>";
+    return $u if ( int(@a) < 3 );
+
+    $hash->{token} = $a[2];
+    $hash->{user}  = $a[3];
+
+    return undef;
 }
 
+sub sendMsg {
+    my ( $hash, $msg ) = @_;
+    my $name     = $hash->{NAME};
+    my $token    = $hash->{token};
+    my $user     = $hash->{user};
+    my $response = "";
+    my $URL      = "https://api.pushover.net/1/messages.json";
 
-sub sendMsg
-{
-  my ($hash, $msg) = @_;
-  my $token = $hash->{token};
-  my $user = $hash->{user};
-  
-  LWP::UserAgent->new()->post(
-    "https://api.pushover.net/1/messages.json", [
-      "token" => "$token",
-      "user" => "$user",
-      "message" => "$msg"
-    ]
-  );
-  print "Push message sent via pushover module"
+    my $POST =
+      "token=" . $token . "&user=" . $user . "&message=" . urlEncode($msg);
+
+    Log3 $name, 4, "pushover $name: POST $URL (" . urlDecode($POST) . ")";
+    $response = CustomGetFileFromURL( 0, $URL, 3, $POST, 0, 5 );
+
+    if ( $response =~ m/"status":(.*),/ ) {
+        return "ok" if $1 eq "1";
+        return "error";
+    }
+
+    return "undefined";
 }
 
 1;
